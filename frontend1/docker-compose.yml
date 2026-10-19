@@ -1,0 +1,19 @@
+name: llm-local-frontend1
+
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    # Réutilise la clé du backend : une seule source de vérité.
+    env_file: ../backend/.env
+    environment:
+      NGINX_ENVSUBST_FILTER: "LLM_API_KEY"
+    ports:
+      - "127.0.0.1:${FRONT_PORT:-3000}:80"
+    networks:
+      - backend
+
+networks:
+  backend:
+    name: llm-local_default
+    external: true

@@ -1,0 +1,27 @@
+server {
+    listen 80;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Résolution DNS Docker à la volée : le front démarre même si le backend est arrêté.
+    resolver 127.0.0.11 valid=10s ipv6=off;
+
+    location /api/ {
+        set $gateway http://gateway:4000;
+        rewrite ^/api/(.*)$ /$1 break;
+        proxy_pass $gateway;
+        proxy_http_version 1.1;
+        # La clé est ajoutée ici : elle n'est jamais envoyée au navigateur.
+        proxy_set_header Authorization "Bearer ${LLM_API_KEY}";
+        proxy_set_header Connection "";
+        # Streaming (SSE) : pas de mise en tampon, timeouts longs (CPU lent).
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+    }
+
+    location / {
+        try_files $uri /index.html;
+    }
+}

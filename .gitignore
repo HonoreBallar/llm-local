@@ -1,0 +1,9 @@
+# Secrets
+.env
+!.env.example
+
+# Dépendances et builds
+node_modules/
+dist/
+__pycache__/
+.venv/

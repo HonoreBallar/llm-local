@@ -1,0 +1,14 @@
+# Les clients appellent le modèle "local" ; la passerelle le route vers Ollama.
+model_list:
+  - model_name: local
+    litellm_params:
+      model: ollama_chat/gemma3:4b   # garder identique à LLM_MODEL dans .env
+      api_base: http://ollama:11434
+      timeout: 600                   # CPU : les réponses longues peuvent prendre du temps
+
+litellm_settings:
+  drop_params: true    # ignore les paramètres non supportés par Ollama au lieu d'échouer
+  request_timeout: 600
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
