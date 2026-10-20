@@ -1,0 +1,6 @@
+# Fichiers exécutés sous Linux (VPS, conteneurs) : toujours en LF
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+Caddyfile text eol=lf
+*.template text eol=lf

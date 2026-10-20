@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatView from './components/ChatView';
 import SettingsModal from './components/SettingsModal';
-import { checkHealth, listModels, streamChat, type ChatMessage } from './api';
+import LockScreen from './components/LockScreen';
+import { AuthError, checkAuth, checkHealth, listModels, setPassword, streamChat, type ChatMessage } from './api';
 import { loadConversations, loadSettings, saveConversations, saveSettings, uid } from './storage';
 import type { Conversation, Message, Settings } from './types';
 
@@ -22,7 +23,13 @@ export default function App() {
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => !isMobile());
+  const [locked, setLocked] = useState<boolean | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Sur Vercel, l'API exige un mot de passe ; en local (nginx, Vite), checkAuth renvoie toujours true.
+  useEffect(() => {
+    checkAuth().then((ok) => setLocked(!ok)).catch(() => setLocked(false));
+  }, []);
 
   useEffect(() => saveConversations(conversations), [conversations]);
   useEffect(() => saveSettings(settings), [settings]);
@@ -42,10 +49,11 @@ export default function App() {
       setOnline(ok);
       if (ok) listModels().then((m) => !cancelled && setModels(m)).catch(() => {});
     };
+    if (locked !== false) return;
     poll();
     const t = setInterval(poll, 15_000);
     return () => { cancelled = true; clearInterval(t); };
-  }, []);
+  }, [locked]);
 
   const active = conversations.find((c) => c.id === activeId) ?? null;
 
@@ -81,7 +89,11 @@ export default function App() {
         onToken: (t) => updateMessage(convId, reply.id, (m) => ({ ...m, content: m.content + t })),
       });
     } catch (e) {
-      if ((e as Error).name !== 'AbortError') {
+      if (e instanceof AuthError) {
+        setPassword(null);
+        setLocked(true);
+        updateMessage(convId, reply.id, (m) => ({ ...m, content: 'Session expirée : saisis à nouveau le mot de passe.', error: true }));
+      } else if ((e as Error).name !== 'AbortError') {
         const msg = (e as Error).message;
         const text = msg === 'Failed to fetch' ? "Impossible de joindre l'API. Le backend est-il démarré ?" : msg;
         updateMessage(convId, reply.id, (m) => (m.content ? m : { ...m, content: text, error: true }));
@@ -132,6 +144,20 @@ export default function App() {
     if (id === activeId) select(null);
     setConversations((cs) => cs.filter((c) => c.id !== id));
   };
+
+  if (locked === null) return null;
+  if (locked) {
+    return (
+      <LockScreen
+        onUnlock={async (password) => {
+          if (!(await checkAuth(password))) return false;
+          setPassword(password);
+          setLocked(false);
+          return true;
+        }}
+      />
+    );
+  }
 
   return (
     <div className={`app${sidebarOpen ? ' with-sidebar' : ''}`}>

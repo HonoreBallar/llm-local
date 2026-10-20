@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend (types + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend1/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  backend:
+    name: Backend (compose + Caddyfile)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      LLM_API_KEY: ci-dummy-key
+      PUBLIC_IP: 127.0.0.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compose local valide
+        run: docker compose -f docker-compose.yml config --quiet
+      - name: Compose production valide
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet
+      - name: Caddyfile valide
+        run: |
+          docker run --rm -e PUBLIC_IP -e PUBLIC_PORT=8443 \
+            -v "$PWD/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2.8.4-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+      - name: Script de déploiement valide
+        run: bash -n deploy/remote-deploy.sh

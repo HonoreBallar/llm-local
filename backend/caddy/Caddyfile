@@ -1,0 +1,33 @@
+# HTTPS sur IP:port sans nom de domaine.
+# Caddy crée sa propre autorité de certification (stockée dans le volume caddy-data) ;
+# les clients lui font confiance via son certificat racine (root.crt).
+{
+	auto_https disable_redirects
+	skip_install_trust
+	default_sni {$PUBLIC_IP}
+	admin off
+}
+
+https://{$PUBLIC_IP}:{$PUBLIC_PORT} {
+	tls internal
+
+	# N'expose que l'API et la santé ; l'interface d'admin et la doc de LiteLLM restent fermées.
+	@api path /v1/* /health/liveliness /health/readiness
+	handle @api {
+		reverse_proxy gateway:4000 {
+			flush_interval -1
+			transport http {
+				read_timeout 600s
+				write_timeout 600s
+			}
+		}
+	}
+	handle {
+		respond "Not found" 404
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

@@ -1,9 +1,43 @@
-// Le navigateur appelle /api/... ; nginx (ou Vite en dev) relaie vers la passerelle avec la clé.
+// Le navigateur appelle /api/... ; nginx (Docker), Vite (dev) ou la fonction Vercel (prod)
+// relaie vers la passerelle avec la clé. Sur Vercel, un mot de passe d'appli est en plus exigé.
 const BASE = '/api';
+const PASSWORD_KEY = 'llm-local.password';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
+}
+
+/** Levée quand la fonction Vercel exige le mot de passe de l'appli. */
+export class AuthError extends Error {}
+
+export function getPassword(): string {
+  try {
+    return localStorage.getItem(PASSWORD_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function setPassword(password: string | null): void {
+  try {
+    if (password) localStorage.setItem(PASSWORD_KEY, password);
+    else localStorage.removeItem(PASSWORD_KEY);
+  } catch {
+    /* stockage indisponible : le mot de passe sera redemandé */
+  }
+}
+
+function authHeaders(password = getPassword()): Record<string, string> {
+  return password ? { 'x-app-password': password } : {};
+}
+
+const needsPassword = (r: Response) => r.status === 401 && r.headers.get('x-auth-required') === 'password';
+
+/** true si l'accès est autorisé (ou si aucun mot de passe n'est exigé, en local). */
+export async function checkAuth(password?: string): Promise<boolean> {
+  const r = await fetch(`${BASE}/__auth`, { headers: authHeaders(password), cache: 'no-store' });
+  return !needsPassword(r);
 }
 
 export async function checkHealth(): Promise<boolean> {
@@ -16,7 +50,8 @@ export async function checkHealth(): Promise<boolean> {
 }
 
 export async function listModels(): Promise<string[]> {
-  const r = await fetch(`${BASE}/v1/models`);
+  const r = await fetch(`${BASE}/v1/models`, { headers: authHeaders() });
+  if (needsPassword(r)) throw new AuthError('Mot de passe requis');
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   const json = await r.json();
   return (json.data ?? []).map((m: { id: string }) => m.id);
@@ -44,7 +79,7 @@ export async function streamChat(opts: {
 }): Promise<void> {
   const r = await fetch(`${BASE}/v1/chat/completions`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({
       model: opts.model,
       messages: opts.messages,
@@ -55,6 +90,7 @@ export async function streamChat(opts: {
     signal: opts.signal,
   });
 
+  if (needsPassword(r)) throw new AuthError('Mot de passe requis');
   if (!r.ok || !r.body) {
     const body = await r.text().catch(() => '');
     throw new Error(errorMessage(r.status, body));

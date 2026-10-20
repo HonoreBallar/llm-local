@@ -1,0 +1,34 @@
+# Surcouche de production (VPS) :
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file ../shared/.env up -d
+# Seul Caddy (HTTPS, port 8443) est exposé ; Ollama et la passerelle restent sur le réseau interne.
+
+services:
+  ollama:
+    mem_limit: ${OLLAMA_MEM_LIMIT:-6g}
+    environment:
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-10m}
+
+  gateway:
+    ports: !reset []
+    mem_limit: 1g
+
+  caddy:
+    image: caddy:2.8.4-alpine
+    restart: unless-stopped
+    depends_on:
+      gateway:
+        condition: service_healthy
+    environment:
+      PUBLIC_IP: ${PUBLIC_IP:?Définis PUBLIC_IP dans .env}
+      PUBLIC_PORT: ${PUBLIC_PORT:-8443}
+    ports:
+      - "${PUBLIC_PORT:-8443}:${PUBLIC_PORT:-8443}"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data      # contient l'autorité de certification : ne pas supprimer
+      - caddy-config:/config
+    mem_limit: 128m
+
+volumes:
+  caddy-data:
+  caddy-config:
