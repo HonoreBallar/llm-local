@@ -7,3 +7,6 @@ node_modules/
 dist/
 __pycache__/
 .venv/
+
+# Variables Vercel (secrets) à coller dans le tableau de bord, jamais dans Git
+vercel.env
