@@ -1,0 +1,45 @@
+name: llm-local-frontend2
+
+services:
+  # Filtre devant le socket Docker : l'agent peut LIRE les conteneurs et leurs logs, rien d'autre
+  # (aucun démarrage, arrêt, exec ni suppression possible).
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - interne
+
+  veilleur:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - socket-proxy
+    # Réutilise la clé du backend : une seule source de vérité.
+    env_file: ../backend/.env
+    environment:
+      DOCKER_HOST: tcp://socket-proxy:2375
+      LLM_GATEWAY_URL: http://gateway:4000
+      WATCH_PROJECTS: llm-local,llm-local-frontend1,llm-local-frontend2
+      WATCH_EXCLUDE_SERVICES: socket-proxy
+    volumes:
+      - veilleur-data:/data   # historique des rapports
+    ports:
+      - "127.0.0.1:${VEILLEUR_PORT:-3001}:8000"
+    networks:
+      - interne
+      - backend
+
+networks:
+  interne:
+    internal: true
+  backend:
+    name: llm-local_default
+    external: true
+
+volumes:
+  veilleur-data:

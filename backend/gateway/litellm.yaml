@@ -2,9 +2,16 @@
 model_list:
   - model_name: local
     litellm_params:
-      model: ollama_chat/gemma3:4b   # garder identique à LLM_MODEL dans .env
+      model: ollama_chat/qwen2.5:3b  # garder identique à LLM_MODEL dans .env
       api_base: http://ollama:11434
       timeout: 600                   # CPU : les réponses longues peuvent prendre du temps
+
+  # Modèle qui lit les images (analyse des documents de frontend3).
+  - model_name: vision
+    litellm_params:
+      model: ollama_chat/gemma3:4b   # garder identique à LLM_VISION_MODEL dans .env
+      api_base: http://ollama:11434
+      timeout: 600
 
 litellm_settings:
   drop_params: true    # ignore les paramètres non supportés par Ollama au lieu d'échouer

@@ -1,0 +1,62 @@
+name: llm-local-frontend3
+
+services:
+  # Base PostgreSQL : les catégories sont gardées dans le volume db-data.
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: categories
+      POSTGRES_USER: categories
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-categories}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    # Publié seulement sur ce PC : pour `npm run dev` dans api/ ou un client SQL.
+    ports:
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U categories -d categories"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - interne
+
+  # API REST des catégories + chatbot (appelle le LLM avec des outils).
+  api:
+    build: ./api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    # Réutilise la clé du backend : une seule source de vérité.
+    env_file: ../backend/.env
+    environment:
+      DATABASE_URL: postgres://categories:${DB_PASSWORD:-categories}@db:5432/categories
+      LLM_GATEWAY_URL: http://gateway:4000
+    volumes:
+      - uploads:/data/uploads   # documents des fiches (CNI, justificatifs KYC)
+    networks:
+      - interne
+      - backend
+
+  # Interface React servie par nginx, qui relaie /api vers l'API.
+  web:
+    build: ./web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:${FRONT_PORT:-3002}:80"
+    networks:
+      - interne
+
+networks:
+  interne:
+  backend:
+    name: llm-local_default
+    external: true
+
+volumes:
+  db-data:
+  uploads:

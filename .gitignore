@@ -10,3 +10,6 @@ __pycache__/
 
 # Variables Vercel (secrets) à coller dans le tableau de bord, jamais dans Git
 vercel.env
+
+# Documents des fiches en développement local (données personnelles)
+uploads/

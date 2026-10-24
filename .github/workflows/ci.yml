@@ -26,6 +26,37 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+  veilleur:
+    name: Veilleur (tests agent + build interface)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Tests de l'agent
+        working-directory: frontend2/agent
+        run: |
+          pip install -r requirements-dev.txt
+          python -m pytest -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend2/web/package-lock.json
+      - name: Build de l'interface
+        working-directory: frontend2/web
+        run: |
+          npm ci
+          npm run build
+      - name: Compose valide
+        run: |
+          mkdir -p ../backend && touch ../backend/.env
+          docker compose config --quiet
+
   backend:
     name: Backend (compose + Caddyfile)
     runs-on: ubuntu-latest

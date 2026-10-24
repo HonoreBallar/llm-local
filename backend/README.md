@@ -59,10 +59,13 @@ Modèles adaptés à 16 Go de RAM sans GPU NVIDIA :
 |---|---|---|
 | `gemma3:1b` | ~0,8 Go | très rapide, qualité limitée |
 | `llama3.2:3b` | ~2 Go | rapide |
-| `gemma3:4b` | ~3,3 Go | **défaut**, bon compromis, bon en français |
+| `qwen2.5:3b` | ~1,9 Go | **défaut**, rapide, gère l'appel d'outils (requis par frontend3) |
+| `gemma3:4b` | ~3,3 Go | lit les images : modèle **`vision`** par défaut (analyse des documents de frontend3), pas d'appel d'outils |
 | `qwen3:8b` | ~5,2 Go | meilleur, mais lent sur CPU |
 
 Liste des modèles installés : `docker compose exec ollama ollama list`
+
+Deux modèles sont déclarés dans la passerelle : `local` (texte, `LLM_MODEL`) et `vision` (images, `LLM_VISION_MODEL`). Pour changer le modèle de vision, modifier `LLM_VISION_MODEL` dans `.env` **et** le modèle `vision` dans `gateway/litellm.yaml`. Un seul modèle est chargé à la fois (`OLLAMA_MAX_LOADED_MODELS=1`) : passer de l'un à l'autre ajoute 20 à 30 s.
 
 ## Production (VPS)
 

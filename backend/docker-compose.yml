@@ -19,7 +19,7 @@ services:
       timeout: 5s
       retries: 10
 
-  # Télécharge le modèle au premier démarrage puis s'arrête.
+  # Télécharge les modèles (texte + vision) au premier démarrage puis s'arrête.
   model-init:
     image: ollama/ollama:latest
     depends_on:
@@ -27,7 +27,7 @@ services:
         condition: service_healthy
     environment:
       OLLAMA_HOST: http://ollama:11434
-    entrypoint: ["ollama", "pull", "${LLM_MODEL:-gemma3:4b}"]
+    entrypoint: ["sh", "-c", "ollama pull ${LLM_MODEL:-qwen2.5:3b} && ollama pull ${LLM_VISION_MODEL:-gemma3:4b}"]
     restart: "no"
 
   # Passerelle API : clé API + formats OpenAI (/v1/chat/completions) et Claude (/v1/messages).
@@ -42,7 +42,7 @@ services:
       - ./gateway/litellm.yaml:/app/config.yaml:ro
     environment:
       LITELLM_MASTER_KEY: ${LLM_API_KEY:?Définis LLM_API_KEY dans .env}
-      LLM_MODEL: ${LLM_MODEL:-gemma3:4b}
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5:3b}
     ports:
       - "${LLM_BIND:-127.0.0.1}:${LLM_PORT:-4000}:4000"
     healthcheck:
